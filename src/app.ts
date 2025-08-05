@@ -1,32 +1,38 @@
 // src/app.ts
-import fastify from "fastify";
-import "dotenv/config"; // Loads .env variables
-import axios from "axios";
 import formbody from "@fastify/formbody";
-
-type SlackRequestBody = {
-  token: string;
-  team_id: string;
-  api_app_id: string;
-  event: {
-    type: string;
-    user: string;
-    text: string;
-    ts: string;
-    channel: string;
-    event_ts: string;
-    thread_ts?: string; // Optional, exists if the mention was in a thread
-  };
-  type: string;
-  event_id: string;
-  event_time: number;
-  authed_users: string[];
-};
+import axios from "axios";
+import "dotenv/config";
+import fastify from "fastify";
+import type { SlackRequestBody } from "./types.js";
 
 const server = fastify();
 const PORT = 3000;
 
 server.register(formbody);
+
+async function fetchThreadMessages(channelId: string, threadTs: string): Promise<any[]> {
+  try {
+    const result = await axios.get("https://slack.com/api/conversations.replies", {
+      params: {
+        channel: channelId,
+        ts: threadTs,
+      },
+      headers: {
+        Authorization: `Bearer ${process.env.SLACK_BOT_TOKEN}`,
+      },
+    });
+
+    if (result.data.ok) {
+      return result.data.messages || [];
+    }
+
+    console.error("Slack API error:", result.data.error);
+    return [];
+  } catch (error) {
+    console.error("Error fetching thread messages:", error);
+    return [];
+  }
+}
 
 server.post("/slack/events", async (request, reply) => {
   // FIXME - add typecheck to make sure the type matches
@@ -46,9 +52,15 @@ server.post("/slack/events", async (request, reply) => {
     const threadTs = event.thread_ts || event.ts;
     const userText = event.text;
 
-    console.log(`Mention was in channel ${channelId}`);
-    console.log(`The user wrote: "${userText}"`);
-    console.log(`The thread timestamp is: ${threadTs}`);
+    const messages = await fetchThreadMessages(channelId, threadTs);
+
+    const formattedMessages = messages.map((msg) => `${msg.user}: ${msg.text}`).join("\n");
+
+    const fullContext = `THREAD CONTEXT:\n${formattedMessages}\n\nUSER COMMAND:\n${userText}`;
+
+    console.log("--- FULL CONTEXT ---");
+    console.log(fullContext);
+    console.log("--------------------");
   }
 });
 
