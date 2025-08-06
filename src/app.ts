@@ -4,7 +4,7 @@ import "dotenv/config";
 import fastify from "fastify";
 import type { SlackRequestBody } from "./types.js";
 import { GoogleGenAI } from "@google/genai";
-import { GEMINI_MODEL, prompt, THINKING_BUDGET } from "./global-consts.js";
+import { GEMINI_MODEL, THINKING_BUDGET } from "./global-consts.js";
 
 const ai = new GoogleGenAI({});
 
@@ -63,6 +63,8 @@ server.post("/slack/events", async (request, reply) => {
 
   console.log("Received data:", body);
 
+  const { channel: channelId, thread_ts, ts, text: userCommand } = body.event;
+
   // return reply.status(200).send({ challenge: body.challenge });
 
   if (body.type === "event_callback" && body.event.type === "app_mention") {
@@ -72,19 +74,30 @@ server.post("/slack/events", async (request, reply) => {
     // Acknowledge the event immediately
     reply.status(200).send();
 
-    const channelId = event.channel;
     // The thread_ts will exist if the mention was in a thread
-    const threadTs = event.thread_ts || event.ts;
+    const threadTs = thread_ts || ts;
 
-    const messages = await fetchThreadMessages(channelId, threadTs);
+    const allMessages = await fetchThreadMessages(channelId, threadTs);
 
-    const formattedMessages = messages.map((msg) => `${msg.user}: ${msg.text}`).join("\n");
+    if (!allMessages || allMessages.length === 0) {
+      console.log("No messages found in the thread.");
+      return reply.status(200).send({
+        text: "No messages found in the thread.",
+      });
+    }
 
-    const fullContext = `THREAD CONTEXT:\n${formattedMessages}\n`;
+    // Get all messages except the last one (the mention itself)
+    const relevantMessages = allMessages.slice(0, -1);
 
-    const summary = await getGeminiSummary(fullContext);
+    console.log("🚀 ~ messages:", relevantMessages);
 
-    console.log("Generated summary:", summary);
+    const formattedMessages = relevantMessages.map((msg) => `${msg.user}: ${msg.text}`).join("\n");
+    console.log("🚀 ~ formattedMessages:", formattedMessages);
+    console.log("🚀 ~ userCommand:", userCommand);
+
+    // const summary = await getGeminiSummary(fullContext);
+
+    // console.log("Generated summary:", summary);
   }
 });
 
