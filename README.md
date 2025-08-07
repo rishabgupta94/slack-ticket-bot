@@ -1,10 +1,5 @@
-## Future
+# Slack-Jira Bot
 
-### Short Term
+## Overview
 
-- Add thread link in the description
-
-### Long Term
-
-- Allow using it in the normal slack conversation
-  - and specify how many previous messages to get context from
+The Slack-Jira Bot is a tool designed to integrate Slack with Jira, avoiding the overhead of writing the title and the description of a Jira issue, and lets AI generate it based on the thread context.
