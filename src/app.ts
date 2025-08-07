@@ -1,61 +1,14 @@
 import formbody from "@fastify/formbody";
-import axios from "axios";
 import "dotenv/config";
 import fastify from "fastify";
+import { fetchThreadMessages } from "./services/slack.js";
 import type { SlackRequestBody } from "./types.js";
-import { GoogleGenAI } from "@google/genai";
-import { GEMINI_MODEL, THINKING_BUDGET } from "./global-consts.js";
-
-const ai = new GoogleGenAI({});
 
 const server = fastify();
 const PORT = 3000;
+let BOT_USER_ID: string | undefined;
 
 server.register(formbody);
-
-async function getGeminiSummary(context: string) {
-  const promptContent = prompt(context);
-
-  const response = await ai.models.generateContent({
-    model: GEMINI_MODEL,
-    contents: promptContent,
-    config: {
-      thinkingConfig: {
-        thinkingBudget: THINKING_BUDGET,
-      },
-    },
-  });
-
-  if (response.text) {
-    return response.text;
-  }
-
-  console.error("Error generating content:");
-}
-
-async function fetchThreadMessages(channelId: string, threadTs: string): Promise<any[]> {
-  try {
-    const result = await axios.get("https://slack.com/api/conversations.replies", {
-      params: {
-        channel: channelId,
-        ts: threadTs,
-      },
-      headers: {
-        Authorization: `Bearer ${process.env.SLACK_BOT_TOKEN}`,
-      },
-    });
-
-    if (result.data.ok) {
-      return result.data.messages || [];
-    }
-
-    console.error("Slack API error:", result.data.error);
-    return [];
-  } catch (error) {
-    console.error("Error fetching thread messages:", error);
-    return [];
-  }
-}
 
 server.post("/slack/events", async (request, reply) => {
   // FIXME - add typecheck to make sure the type matches
@@ -78,6 +31,7 @@ server.post("/slack/events", async (request, reply) => {
     const threadTs = thread_ts || ts;
 
     const allMessages = await fetchThreadMessages(channelId, threadTs);
+    // console.log("🚀 ~ allMessages:", allMessages);
 
     if (!allMessages || allMessages.length === 0) {
       console.log("No messages found in the thread.");
@@ -86,14 +40,17 @@ server.post("/slack/events", async (request, reply) => {
       });
     }
 
-    // Get all messages except the last one (the mention itself)
-    const relevantMessages = allMessages.slice(0, -1);
-
-    console.log("🚀 ~ messages:", relevantMessages);
+    // Get all messages except the last one (the mention itself) AND
+    // Filter messages that are posted by the bot, or with bot mentions
+    const relevantMessages = allMessages.slice(0, -1).filter((msg) => {
+      const isFromBot = msg.user === BOT_USER_ID;
+      const hasBotMention = msg.text && msg.text.includes(`<@${BOT_USER_ID}>`);
+      return !isFromBot && !hasBotMention;
+    });
 
     const formattedMessages = relevantMessages.map((msg) => `${msg.user}: ${msg.text}`).join("\n");
-    console.log("🚀 ~ formattedMessages:", formattedMessages);
-    console.log("🚀 ~ userCommand:", userCommand);
+    // console.log("🚀 ~ formattedMessages:", formattedMessages);
+    // console.log("🚀 ~ userCommand:", userCommand);
 
     // const summary = await getGeminiSummary(fullContext);
 
@@ -101,10 +58,14 @@ server.post("/slack/events", async (request, reply) => {
   }
 });
 
-server.listen({ port: PORT }, (err, address) => {
-  if (err) {
+// --- Main Startup Function ---
+const startServer = async () => {
+  try {
+    await server.listen({ port: PORT });
+  } catch (err) {
     server.log.error(err);
     process.exit(1);
   }
-  console.log(`Server listening at ${address}`);
-});
+};
+
+startServer();
