@@ -1,6 +1,7 @@
 import bolt from "@slack/bolt";
 import "dotenv/config";
 import { fetchThreadMessages } from "./services/slack.js";
+import { getGeminiSummary } from "./services/gemini.js";
 
 const { App } = bolt;
 
@@ -19,7 +20,6 @@ app.event("app_mention", async ({ event, client, context }) => {
   const threadTimestamp = thread_ts || ts;
 
   const allMessages = await fetchThreadMessages(client, channel, threadTimestamp);
-  console.log("🚀 ~ allMessages:", allMessages);
 
   if (!allMessages || allMessages.length === 0) {
     console.error("Could not fetch thread messages.");
@@ -31,10 +31,14 @@ app.event("app_mention", async ({ event, client, context }) => {
     .slice(0, -1)
     .filter((msg) => botUserId && msg.user !== botUserId && !msg.text?.includes(botUserId));
 
-  const lastAppMention = allMessages[allMessages.length - 1]?.text || "";
+  const lastAppMention = allMessages[allMessages.length - 1]?.text?.replace(`<@${botUserId}>`, "").trim() || "";
   console.log("🚀 ~ lastAppMention:", lastAppMention);
   const formattedThreadContext = relevantMessages.map((msg) => `${msg.user}: ${msg.text}`).join("\n");
   console.log("🚀 ~ formattedThreadContext:", formattedThreadContext);
+
+  // Get AI summary
+  const aiSummary = await getGeminiSummary(formattedThreadContext, lastAppMention);
+  console.log("🚀 ~ aiSummary:", aiSummary);
 });
 
 // --- Start the App ---
