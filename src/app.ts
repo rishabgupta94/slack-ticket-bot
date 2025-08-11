@@ -1,7 +1,7 @@
 import bolt from "@slack/bolt";
 import "dotenv/config";
 import { fetchThreadMessages } from "./services/slack.js";
-import { getGeminiSummary } from "./services/gemini.js";
+import { getGeminiSummary, isGeminiErrorResponse } from "./services/gemini.js";
 
 const { App } = bolt;
 
@@ -36,9 +36,29 @@ app.event("app_mention", async ({ event, client, context }) => {
   const formattedThreadContext = relevantMessages.map((msg) => `${msg.user}: ${msg.text}`).join("\n");
   console.log("🚀 ~ formattedThreadContext:", formattedThreadContext);
 
+  // Send acknowledgment message short lived
+  if (userId) {
+    await client.chat.postEphemeral({
+      channel,
+      text: `:thinking_face: Processing your request...`,
+      user: userId,
+      thread_ts: threadTimestamp,
+    });
+  }
+
   // Get AI summary
   const aiSummary = await getGeminiSummary(formattedThreadContext, lastAppMention);
   console.log("🚀 ~ aiSummary:", aiSummary);
+
+  if (!aiSummary || isGeminiErrorResponse(aiSummary)) {
+    const errorMessage = aiSummary?.error || "An error occurred while processing your request.";
+    await client.chat.postMessage({
+      channel,
+      text: `:warning: ${errorMessage}`,
+      thread_ts: threadTimestamp,
+    });
+    return;
+  }
 });
 
 // --- Start the App ---

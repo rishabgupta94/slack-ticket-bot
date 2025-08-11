@@ -1,5 +1,6 @@
 ## Changes
 
+- Retry Gemini Summary upto 3 times, if not a valid JSON response
 - Reporter ID is hard-coded
   - will have to get the email from slack for the user who mentioned the bot and search it in JIRA
 - Use Oauth for JIRA API

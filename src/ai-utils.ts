@@ -28,10 +28,12 @@ export function createJiraPrompt(threadContext: string, userDirective: string): 
             - Example: { "error": "The context is not sufficient to create a ticket. Please clarify the task." }
             - Remember, to keep the error message short and direct.
         4.  Do not add any additional text or explanations outside the JSON object; and do not add any additional context or explanations unless explicitly requested.
+        5. Keep the title and description concise and short, but detailed enough as not to miss any important information.
     
         **OUTPUT FORMAT:**
         - On SUCCESS, return a raw JSON object: { "title": "Your Title", "description": "Your Markdown Description" }
         - On FAILURE, return a raw JSON object: { "error": "Your Reason For Failure" }
+        - The response MUST be a valid JSON object, which should be parsable by any JSON parser.
         - Do NOT include markdown code block fences.
       `;
 }
