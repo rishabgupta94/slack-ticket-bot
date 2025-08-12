@@ -36,10 +36,12 @@ export async function getGeminiSummary(context: string, userDirective: string) {
     },
   });
 
-  // JSON parse the response text and return
-  if (response.text) {
+  // Clean the response text to extract the JSON object
+  const cleanedText = response.text ? response.text.match(/\{[\s\S]*\}/)?.[0] : null;
+
+  if (cleanedText) {
     try {
-      const parsedResponse = JSON.parse(response.text);
+      const parsedResponse = JSON.parse(cleanedText);
       // Response could be a GeminiResponse or GeminiErrorResponse
       if (isGeminiErrorResponse(parsedResponse)) {
         console.log("AI error response:", parsedResponse.error);
@@ -47,7 +49,6 @@ export async function getGeminiSummary(context: string, userDirective: string) {
       }
 
       if (isGeminiResponse(parsedResponse)) {
-        console.log("AI response:", parsedResponse);
         return parsedResponse;
       }
 
