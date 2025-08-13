@@ -23,26 +23,78 @@ interface JiraTicketData {
       id: string;
     };
     reporter: {
-      id: string; // This is the Atlassian Account ID
+      id: string;
     };
   };
 }
+
+interface JiraIssueType {
+  id: string;
+  name: string;
+  description: string;
+  subtask: boolean;
+}
+
+// FIXME
+// export async function getJiraIssueTypes(): Promise<JiraIssueType[] | null> {
+//   const { JIRA_BASE_URL, JIRA_USER_EMAIL, JIRA_API_TOKEN } = process.env;
+
+//   if (!JIRA_BASE_URL || !JIRA_USER_EMAIL || !JIRA_API_TOKEN) {
+//     console.error(
+//       "Jira auth environment variables are not set. Please check JIRA_BASE_URL, JIRA_USER_EMAIL, and JIRA_API_TOKEN."
+//     );
+//     return null;
+//   }
+
+//   // Using the general endpoint from the official documentation.
+//   const url = `${JIRA_BASE_URL}/rest/api/3/issuetype`;
+//   const authHeader = `Basic ${Buffer.from(`${JIRA_USER_EMAIL}:${JIRA_API_TOKEN}`).toString("base64")}`;
+
+//   console.log(`🔷 Fetching all available issue types from: ${url}`);
+
+//   try {
+//     const response = await axios.get(url, {
+//       headers: {
+//         Authorization: authHeader,
+//         Accept: "application/json",
+//       },
+//     });
+
+//     const issueTypes = response.data as JiraIssueType[];
+//     console.log("🚀 ~ issueTypes:", issueTypes);
+
+//     if (issueTypes && issueTypes.length > 0) {
+//       console.log(`✅ Success! Found ${issueTypes.length} issue types.`);
+//       // We are logging the full list here for you to inspect.
+//       console.log("--- Available Issue Types ---");
+//       console.log(issueTypes.map((it) => ({ id: it.id, name: it.name, description: it.description })));
+//       console.log("---------------------------");
+//       return issueTypes;
+//     } else {
+//       console.warn("⚠️ API call succeeded, but no issue types were returned.");
+//       return [];
+//     }
+//   } catch (error: any) {
+//     // Enhanced error logging for easier debugging
+//     console.error("❌ Error fetching Jira issue types. The API call failed.");
+//     if (error.response) {
+//       console.error(`Status: ${error.response.status}`);
+//       console.error("Data:", JSON.stringify(error.response.data, null, 2));
+//     } else {
+//       console.error("Error Message:", error.message);
+//     }
+//     return null;
+//   }
+// }
 
 export async function createJiraTicket(
   title: string,
   description: string
 ): Promise<{ key: string; url: string } | null> {
-  const { JIRA_BASE_URL, JIRA_USER_EMAIL, JIRA_API_TOKEN, JIRA_PROJECT_KEY, JIRA_ISSUE_TYPE_ID, JIRA_REPORTER_ID } =
+  const { JIRA_BASE_URL, JIRA_USER_EMAIL, JIRA_API_TOKEN, JIRA_PROJECT_KEY, JIRA_REPORTER_ID, JIRA_TASK_ID } =
     process.env;
 
-  if (
-    !JIRA_BASE_URL ||
-    !JIRA_USER_EMAIL ||
-    !JIRA_API_TOKEN ||
-    !JIRA_PROJECT_KEY ||
-    !JIRA_ISSUE_TYPE_ID ||
-    !JIRA_REPORTER_ID
-  ) {
+  if (!JIRA_BASE_URL || !JIRA_USER_EMAIL || !JIRA_API_TOKEN || !JIRA_PROJECT_KEY || !JIRA_REPORTER_ID) {
     console.error("Jira environment variables are not fully configured.");
     return null;
   }
@@ -50,6 +102,7 @@ export async function createJiraTicket(
   const url = `${JIRA_BASE_URL}/rest/api/3/issue`;
   const authHeader = `Basic ${Buffer.from(`${JIRA_USER_EMAIL}:${JIRA_API_TOKEN}`).toString("base64")}`;
 
+  // Use the first issue type as default
   const ticketData: JiraTicketData = {
     fields: {
       project: {
@@ -57,7 +110,7 @@ export async function createJiraTicket(
       },
       summary: title,
       issuetype: {
-        id: JIRA_ISSUE_TYPE_ID,
+        id: JIRA_TASK_ID || "10001", // Default to a common task ID if not set
       },
       reporter: {
         // Adding the reporter field
@@ -85,6 +138,7 @@ export async function createJiraTicket(
         "Content-Type": "application/json",
       },
     });
+    console.log("🚀 ~ JIRA create issue response:", response);
 
     const ticketKey = response.data.key;
     const ticketUrl = `${JIRA_BASE_URL}/browse/${ticketKey}`;

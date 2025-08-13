@@ -2,6 +2,7 @@ import bolt from "@slack/bolt";
 import "dotenv/config";
 import { fetchThreadMessages } from "./services/slack.js";
 import { getGeminiSummary, isGeminiErrorResponse } from "./services/gemini.js";
+import { createJiraTicket } from "./services/jira.js";
 
 const { App } = bolt;
 
@@ -59,6 +60,11 @@ app.event("app_mention", async ({ event, client, context }) => {
     });
     return;
   }
+
+  // Create JIRA ticket
+  const { title, description } = aiSummary;
+  const jiraTicket = await createJiraTicket(title, description);
+  console.log("🚀 ~ jiraTicket:", jiraTicket);
 });
 
 // --- Start the App ---

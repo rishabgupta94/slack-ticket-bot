@@ -2,6 +2,7 @@
 
 - Retry Gemini Summary upto 3 times, if not a valid JSON response
 - Reporter ID is hard-coded
+- Get Jira Issue IDs programatically from the commented out fn in jira.ts
   - will have to get the email from slack for the user who mentioned the bot and search it in JIRA
 - Use Oauth for JIRA API
 
