@@ -20,6 +20,16 @@ app.event("app_mention", async ({ event, client, context }) => {
   const { channel, thread_ts, ts, text: userCommand, user: userId } = event;
   const threadTimestamp = thread_ts || ts;
 
+  // Send short lived acknowledgment message
+  if (userId) {
+    await client.chat.postEphemeral({
+      channel,
+      text: `:thinking_face: Processing your request...`,
+      user: userId,
+      thread_ts: threadTimestamp,
+    });
+  }
+
   const allMessages = await fetchThreadMessages(client, channel, threadTimestamp);
 
   if (!allMessages || allMessages.length === 0) {
@@ -36,16 +46,6 @@ app.event("app_mention", async ({ event, client, context }) => {
   console.log("🚀 ~ lastAppMention:", lastAppMention);
   const formattedThreadContext = relevantMessages.map((msg) => `${msg.user}: ${msg.text}`).join("\n");
   console.log("🚀 ~ formattedThreadContext:", formattedThreadContext);
-
-  // Send acknowledgment message short lived
-  if (userId) {
-    await client.chat.postEphemeral({
-      channel,
-      text: `:thinking_face: Processing your request...`,
-      user: userId,
-      thread_ts: threadTimestamp,
-    });
-  }
 
   // Get AI summary
   const aiSummary = await getGeminiSummary(formattedThreadContext, lastAppMention);
@@ -65,6 +65,23 @@ app.event("app_mention", async ({ event, client, context }) => {
   const { title, description } = aiSummary;
   const jiraTicket = await createJiraTicket(title, description);
   console.log("🚀 ~ jiraTicket:", jiraTicket);
+
+  // This is the new code to add
+  if (jiraTicket) {
+    // Success! Send a confirmation message with a link.
+    await client.chat.postMessage({
+      channel,
+      thread_ts: threadTimestamp,
+      text: `✅ I've created a ticket for you: <${jiraTicket.url}|${jiraTicket.key}>`,
+    });
+  } else {
+    // Failure at the Jira step
+    await client.chat.postMessage({
+      channel,
+      thread_ts: threadTimestamp,
+      text: `:warning: Something went wrong while creating the JIRA ticket. Please try again.`,
+    });
+  }
 });
 
 // --- Start the App ---
