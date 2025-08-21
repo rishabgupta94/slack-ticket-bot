@@ -1,4 +1,5 @@
-import axios from "axios";
+import axios, { isAxiosError } from "axios";
+import { JiraApiError } from "../errors.js";
 
 interface Paragraph {
   type: "paragraph";
@@ -144,11 +145,19 @@ export async function createJiraTicket(
     const ticketUrl = `${JIRA_BASE_URL}/browse/${ticketKey}`;
     console.log(`✅ Successfully created Jira ticket: ${ticketKey}`);
     return { key: ticketKey, url: ticketUrl };
-  } catch (error: any) {
-    console.error(
-      "Error creating Jira ticket:",
-      error.response?.data?.errors || error.response?.data?.errorMessages || error.message
-    );
-    return null;
+  } catch (error) {
+    let errorMessage = "An unknown error occurred while creating the JIRA ticket.";
+
+    if (isAxiosError(error)) {
+      // Enhanced error logging for easier debugging
+      const jiraErrors = error.response?.data?.errors || error.response?.data?.errorMessages;
+      errorMessage = Array.isArray(jiraErrors) ? jiraErrors.join(", ") : error.message;
+    } else if (error instanceof Error) {
+      errorMessage = error.message;
+    }
+
+    console.error("Error creating JIRA ticket:", errorMessage);
+
+    throw new JiraApiError(`Failed to create Jira ticket: ${errorMessage}`, { originalError: error });
   }
 }

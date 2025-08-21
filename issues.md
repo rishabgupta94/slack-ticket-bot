@@ -1,5 +1,6 @@
 ## Changes
 
+- type safe JIRA response
 - Retry Gemini Summary upto 3 times, if not a valid JSON response
 - Reporter ID is hard-coded
 - Convert the markdown to atlassian document format before creating a ticket in JIRA

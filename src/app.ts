@@ -66,7 +66,6 @@ app.event("app_mention", async ({ event, client, context }) => {
   const jiraTicket = await createJiraTicket(title, description);
   console.log("🚀 ~ jiraTicket:", jiraTicket);
 
-  // This is the new code to add
   if (jiraTicket) {
     // Success! Send a confirmation message with a link.
     await client.chat.postMessage({
