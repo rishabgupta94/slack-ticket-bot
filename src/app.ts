@@ -20,41 +20,44 @@ app.event("app_mention", async ({ event, client, context }) => {
   const { channel, thread_ts, ts, text: userCommand, user: userId } = event;
   const threadTimestamp = thread_ts || ts;
 
+  if (!userId) {
+    console.error("User ID is missing from the event.");
+    return;
+  }
+
   // Send short lived acknowledgment message
-  if (userId) {
+  await handleSlackPost(
+    client.chat.postEphemeral({
+      channel,
+      text: `:thinking_face: Processing your request...`,
+      user: userId,
+      thread_ts: threadTimestamp,
+    })
+  );
+
+  const slackThreadContext = await fetchThreadMessages(client, channel, threadTimestamp, botUserId);
+
+  if (!slackThreadContext) {
     await handleSlackPost(
       client.chat.postEphemeral({
         channel,
-        text: `:thinking_face: Processing your request...`,
+        text: `:warning: Couldn't fetch the thread messages. Please ensure the thread has messages and try again.`,
         user: userId,
         thread_ts: threadTimestamp,
       })
     );
-  }
-
-  const allMessages = await fetchThreadMessages(client, channel, threadTimestamp);
-
-  if (!allMessages || allMessages.length === 0) {
-    console.error("Could not fetch thread messages.");
     return;
   }
 
-  // Remove the last message (the mention itself) and filter out bot messages
-  const relevantMessages = allMessages
-    .slice(0, -1)
-    .filter((msg) => botUserId && msg.user !== botUserId && !msg.text?.includes(botUserId));
+  const { formattedThreadContext, appMentionUserDirective } = slackThreadContext;
 
-  const lastAppMention = allMessages[allMessages.length - 1]?.text?.replace(`<@${botUserId}>`, "").trim() || "";
-  console.log("🚀 ~ lastAppMention:", lastAppMention);
-  const formattedThreadContext = relevantMessages.map((msg) => `${msg.user}: ${msg.text}`).join("\n");
-  console.log("🚀 ~ formattedThreadContext:", formattedThreadContext);
-
-  // Get AI summary
-  const aiSummary = await getGeminiSummary(formattedThreadContext, lastAppMention);
+  // ---------- GEMINI ----------
+  const aiSummary = await getGeminiSummary(formattedThreadContext, appMentionUserDirective);
   console.log("🚀 ~ aiSummary:", aiSummary);
 
+  // Gemini returned an error response
   if (!aiSummary || isGeminiErrorResponse(aiSummary)) {
-    const errorMessage = aiSummary?.error || "An error occurred while processing your request.";
+    const errorMessage = aiSummary?.error || "An error occurred while processing Gemini's request.";
     await handleSlackPost(
       client.chat.postMessage({
         channel,
@@ -65,8 +68,9 @@ app.event("app_mention", async ({ event, client, context }) => {
     return;
   }
 
-  // Create JIRA ticket
   const { title, description } = aiSummary;
+
+  // ---------- JIRA ----------
   const jiraTicket = await createJiraTicket(title, description);
   console.log("🚀 ~ jiraTicket:", jiraTicket);
 
