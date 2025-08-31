@@ -1,5 +1,5 @@
 import axios, { isAxiosError } from "axios";
-import { JiraApiError } from "../errors.js";
+import { AppError, ErrorType } from "../errors.js";
 
 interface Paragraph {
   type: "paragraph";
@@ -149,7 +149,6 @@ export async function createJiraTicket(
     let errorMessage = "An unknown error occurred while creating the JIRA ticket.";
 
     if (isAxiosError(error)) {
-      // Enhanced error logging for easier debugging
       const jiraErrors = error.response?.data?.errors || error.response?.data?.errorMessages;
       errorMessage = Array.isArray(jiraErrors) ? jiraErrors.join(", ") : error.message;
     } else if (error instanceof Error) {
@@ -158,6 +157,8 @@ export async function createJiraTicket(
 
     console.error("Error creating JIRA ticket:", errorMessage);
 
-    throw new JiraApiError(`Failed to create Jira ticket: ${errorMessage}`, { originalError: error });
+    throw new AppError(ErrorType.JIRA_API_ERROR, `Failed to create Jira ticket: ${errorMessage}`, {
+      originalError: error,
+    });
   }
 }

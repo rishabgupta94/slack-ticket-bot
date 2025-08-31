@@ -1,8 +1,8 @@
 ## Changes
 
-- type safe JIRA response
-- Retry Gemini Summary upto 3 times, if not a valid JSON response
+- type safe JIRA response and error
 - Reporter ID is hard-coded
+- Retry Gemini Summary upto 3 times, if not a valid JSON response
 - Convert the markdown to atlassian document format before creating a ticket in JIRA
 - Get Jira Issue IDs programatically from the commented out fn in jira.ts
   - will have to get the email from slack for the user who mentioned the bot and search it in JIRA

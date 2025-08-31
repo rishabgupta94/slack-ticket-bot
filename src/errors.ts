@@ -1,15 +1,14 @@
-export class AppError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = this.constructor.name; // Set the error name to the class name
-  }
+export enum ErrorType {
+  JIRA_API_ERROR = "JIRA_API_ERROR",
+  GEMINI_API_ERROR = "GEMINI_API_ERROR",
 }
 
-export class JiraApiError extends AppError {
+export class AppError extends Error {
   public readonly context?: any;
 
-  constructor(message: string, context?: any) {
+  constructor(name: ErrorType, message: string, context?: any) {
     super(message);
+    this.name = name;
     this.context = context;
   }
 }
