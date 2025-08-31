@@ -1,6 +1,6 @@
 import bolt from "@slack/bolt";
 import "dotenv/config";
-import { fetchThreadMessages } from "./services/slack.js";
+import { fetchThreadMessages, handleSlackPost } from "./services/slack.js";
 import { getGeminiSummary, isGeminiErrorResponse } from "./services/gemini.js";
 import { createJiraTicket } from "./services/jira.js";
 
@@ -22,12 +22,14 @@ app.event("app_mention", async ({ event, client, context }) => {
 
   // Send short lived acknowledgment message
   if (userId) {
-    await client.chat.postEphemeral({
-      channel,
-      text: `:thinking_face: Processing your request...`,
-      user: userId,
-      thread_ts: threadTimestamp,
-    });
+    await handleSlackPost(
+      client.chat.postEphemeral({
+        channel,
+        text: `:thinking_face: Processing your request...`,
+        user: userId,
+        thread_ts: threadTimestamp,
+      })
+    );
   }
 
   const allMessages = await fetchThreadMessages(client, channel, threadTimestamp);
@@ -53,11 +55,13 @@ app.event("app_mention", async ({ event, client, context }) => {
 
   if (!aiSummary || isGeminiErrorResponse(aiSummary)) {
     const errorMessage = aiSummary?.error || "An error occurred while processing your request.";
-    await client.chat.postMessage({
-      channel,
-      text: `:warning: ${errorMessage}`,
-      thread_ts: threadTimestamp,
-    });
+    await handleSlackPost(
+      client.chat.postMessage({
+        channel,
+        text: `:warning: ${errorMessage}`,
+        thread_ts: threadTimestamp,
+      })
+    );
     return;
   }
 
@@ -68,18 +72,22 @@ app.event("app_mention", async ({ event, client, context }) => {
 
   if (jiraTicket) {
     // Success! Send a confirmation message with a link.
-    await client.chat.postMessage({
-      channel,
-      thread_ts: threadTimestamp,
-      text: `✅ I've created a ticket for you: <${jiraTicket.url}|${jiraTicket.key}>`,
-    });
+    await handleSlackPost(
+      client.chat.postMessage({
+        channel,
+        thread_ts: threadTimestamp,
+        text: `✅ I've created a ticket for you: <${jiraTicket.url}|${jiraTicket.key}>`,
+      })
+    );
   } else {
     // Failure at the Jira step
-    await client.chat.postMessage({
-      channel,
-      thread_ts: threadTimestamp,
-      text: `:warning: Something went wrong while creating the JIRA ticket. Please try again.`,
-    });
+    await handleSlackPost(
+      client.chat.postMessage({
+        channel,
+        thread_ts: threadTimestamp,
+        text: `:warning: Something went wrong while creating the JIRA ticket. Please try again.`,
+      })
+    );
   }
 });
 

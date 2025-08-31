@@ -1,5 +1,6 @@
 import type { ConversationsRepliesResponse, WebAPICallResult, WebClient } from "@slack/web-api";
 import type { Message } from "@slack/web-api/dist/types/response/ChannelsRepliesResponse.js";
+import { AppError, ErrorType } from "../errors.js";
 
 // Type-guard for ConversationsRepliesResponse
 function isConversationsRepliesResponse(page: WebAPICallResult): page is ConversationsRepliesResponse {
@@ -31,5 +32,14 @@ export async function fetchThreadMessages(client: WebClient, channelId: string, 
   } catch (error) {
     console.error("Error fetching thread messages with Bolt client:", error);
     return [];
+  }
+}
+
+export async function handleSlackPost<T>(fn: Promise<T>) {
+  try {
+    await fn;
+  } catch (error: any) {
+    console.error("Error posting message to Slack", error);
+    throw new AppError(ErrorType.SLACK_API_ERROR, error.message, { originalError: error });
   }
 }

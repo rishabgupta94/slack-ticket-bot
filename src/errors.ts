@@ -1,6 +1,7 @@
 export enum ErrorType {
   JIRA_API_ERROR = "JIRA_API_ERROR",
   GEMINI_API_ERROR = "GEMINI_API_ERROR",
+  SLACK_API_ERROR = "SLACK_API_ERROR",
 }
 
 export class AppError extends Error {
