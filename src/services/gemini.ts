@@ -1,6 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import { GEMINI_MODEL, THINKING_BUDGET } from "../global-consts.js";
 import { createJiraPrompt } from "../ai-utils.js";
+import { AppError, ErrorType } from "../errors.js";
 
 type GeminiResponse = {
   title: string;
@@ -25,40 +26,40 @@ export function isGeminiErrorResponse(response: any): response is GeminiErrorRes
 export async function getGeminiSummary(context: string, userDirective: string) {
   const promptContent = createJiraPrompt(context, userDirective);
 
-  console.log("🤖 Creating AI summary");
-  const response = await ai.models.generateContent({
-    model: GEMINI_MODEL,
-    contents: promptContent,
-    config: {
-      thinkingConfig: {
-        thinkingBudget: THINKING_BUDGET,
+  try {
+    console.log("🤖 Creating AI summary");
+    const response = await ai.models.generateContent({
+      model: GEMINI_MODEL,
+      contents: promptContent,
+      config: {
+        thinkingConfig: {
+          thinkingBudget: THINKING_BUDGET,
+        },
       },
-    },
-  });
+    });
 
-  // Clean the response text to extract the JSON object
-  const cleanedText = response.text ? response.text.match(/\{[\s\S]*\}/)?.[0] : null;
+    // Clean the response text to extract the JSON object
+    const cleanedText = response.text ? response.text.match(/\{[\s\S]*\}/)?.[0] : null;
 
-  if (cleanedText) {
-    try {
+    if (cleanedText) {
       const parsedResponse = JSON.parse(cleanedText);
       // Response could be a GeminiResponse or GeminiErrorResponse
       if (isGeminiErrorResponse(parsedResponse)) {
         console.log("AI error response:", parsedResponse.error);
         return parsedResponse;
-      }
-
-      if (isGeminiResponse(parsedResponse)) {
+      } else if (isGeminiResponse(parsedResponse)) {
         return parsedResponse;
       }
 
       console.error("Unexpected AI response format:", parsedResponse);
       return;
-    } catch (error) {
-      console.error("Error parsing AI response:", error);
-      return;
     }
-  }
+  } catch (error: any) {
+    console.error("❌ An API error occurred while contacting Gemini.");
 
-  console.error("Error generating content:");
+    const errorMessage =
+      error.cause?.message || error.message || "An unknown API error occurred while contacting Gemini.";
+
+    throw new AppError(ErrorType.GEMINI_API_ERROR, errorMessage, { originalError: error });
+  }
 }
