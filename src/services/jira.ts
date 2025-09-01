@@ -1,6 +1,15 @@
 import axios, { isAxiosError } from "axios";
 import { AppError, ErrorType } from "../errors.js";
 
+const { JIRA_BASE_URL, JIRA_USER_EMAIL, JIRA_API_TOKEN, JIRA_PROJECT_KEY, JIRA_TASK_ID } = process.env;
+
+if (!JIRA_BASE_URL || !JIRA_USER_EMAIL || !JIRA_API_TOKEN || !JIRA_PROJECT_KEY) {
+  throw new AppError(ErrorType.ENV_VAR_ERROR, "Jira environment variables are not fully configured.");
+}
+
+const jiraApiUrl = `${JIRA_BASE_URL}/rest/api/3/`;
+const authHeader = `Basic ${Buffer.from(`${JIRA_USER_EMAIL}:${JIRA_API_TOKEN}`).toString("base64")}`;
+
 interface Paragraph {
   type: "paragraph";
   content: {
@@ -88,58 +97,63 @@ interface JiraIssueType {
 //   }
 // }
 
+async function getJiraReporterId() {
+  try {
+    const response = await axios.get(`${jiraApiUrl}/myself`, {
+      headers: {
+        Authorization: authHeader,
+        Accept: "application/json",
+      },
+    });
+    return response.data.accountId as string;
+  } catch (error) {
+    throw new AppError(ErrorType.JIRA_API_ERROR, "Failed to fetch Jira reporter ID", { originalError: error });
+  }
+}
+
 export async function createJiraTicket(
   title: string,
   description: string
 ): Promise<{ key: string; url: string } | null> {
-  const { JIRA_BASE_URL, JIRA_USER_EMAIL, JIRA_API_TOKEN, JIRA_PROJECT_KEY, JIRA_REPORTER_ID, JIRA_TASK_ID } =
-    process.env;
-
-  if (!JIRA_BASE_URL || !JIRA_USER_EMAIL || !JIRA_API_TOKEN || !JIRA_PROJECT_KEY || !JIRA_REPORTER_ID) {
-    console.error("Jira environment variables are not fully configured.");
-    return null;
-  }
-
-  const url = `${JIRA_BASE_URL}/rest/api/3/issue`;
-  const authHeader = `Basic ${Buffer.from(`${JIRA_USER_EMAIL}:${JIRA_API_TOKEN}`).toString("base64")}`;
-
-  // Use the first issue type as default
-  const ticketData: JiraTicketData = {
-    fields: {
-      project: {
-        key: JIRA_PROJECT_KEY,
-      },
-      summary: title,
-      issuetype: {
-        id: JIRA_TASK_ID || "10001", // Default to a common task ID if not set
-      },
-      reporter: {
-        // Adding the reporter field
-        id: JIRA_REPORTER_ID,
-      },
-      description: {
-        type: "doc",
-        version: 1,
-        content: [
-          {
-            type: "paragraph",
-            content: [{ type: "text", text: description }],
-          },
-        ],
-      },
-    },
-  };
-
   try {
+    // Get the Reporter ID
+    const JIRA_REPORTER_ID = await getJiraReporterId();
+
+    // Use the first issue type as default
+    const ticketData: JiraTicketData = {
+      fields: {
+        project: {
+          key: JIRA_PROJECT_KEY!,
+        },
+        summary: title,
+        issuetype: {
+          id: JIRA_TASK_ID || "10001", // Default to a common task ID if not set
+        },
+        reporter: {
+          // Adding the reporter field
+          id: JIRA_REPORTER_ID,
+        },
+        description: {
+          type: "doc",
+          version: 1,
+          content: [
+            {
+              type: "paragraph",
+              content: [{ type: "text", text: description }],
+            },
+          ],
+        },
+      },
+    };
+
     console.log(`Creating Jira ticket in project ${JIRA_PROJECT_KEY}...`);
-    const response = await axios.post(url, ticketData, {
+    const response = await axios.post(`${jiraApiUrl}/issue`, ticketData, {
       headers: {
         Authorization: authHeader,
         Accept: "application/json",
         "Content-Type": "application/json",
       },
     });
-    console.log("🚀 ~ JIRA create issue response:", response);
 
     const ticketKey = response.data.key;
     const ticketUrl = `${JIRA_BASE_URL}/browse/${ticketKey}`;

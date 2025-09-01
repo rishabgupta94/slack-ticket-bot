@@ -12,7 +12,6 @@ const app = new App({
 });
 
 // --- Event Listener ---
-// Bolt makes listening for events much cleaner and fully typed!
 app.event("app_mention", async ({ event, client, context }) => {
   console.log("✅ App mention detected by Bolt!");
 
